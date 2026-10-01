@@ -1,0 +1,66 @@
+# Official Qdrant MCP server (qdrant/mcp-server-qdrant) — lab4 tasks 2, 4-6.
+#
+# Runs ALONGSIDE abox's own `qdrant-mcp` (which arrives from the OCI artifact via
+# Flux). Both are needed at once: task 8 compares Agentic Retrieval quality
+# between them.
+#
+# ⚠️ No official IMAGE exists. The GHCR package qdrant/mcp-server-qdrant returns
+# 404 and Docker Hub only carries personal forks. The upstream Dockerfile just
+# runs `uv pip install mcp-server-qdrant` on top of python:3.11-slim with
+# `uvx mcp-server-qdrant` as CMD — which is what this does directly, since a
+# kagent MCPServer accepts an arbitrary image+cmd+args. Cost: the install runs on
+# every pod start (~30-60 s) and needs PyPI reachable. Build and host an image if
+# that becomes a problem.
+#
+# ⚠️ Embeds IN-PROCESS via fastembed (onnxruntime) with
+# sentence-transformers/all-MiniLM-L6-v2 → **384 dimensions**. That is the only
+# EmbeddingProviderType it supports.
+#
+# ⚠️ DO NOT MIX COLLECTIONS: `abox-minilm` here (384d) vs `abox-nomic` in
+# abox's own server (768d, nomic-embed-text-v1.5 via llama.cpp). Different vector
+# spaces — a query embedded by one model cannot be searched in the other's
+# collection.
+#
+# ⚠️ THE TOOL NAMES DIFFER from the built-in server (mcp_server.py:189,197):
+#   official:  qdrant-store / qdrant-find
+#   built-in:  vector_store / vector_find
+# So an agent for it needs both its own toolset AND its own system prompt
+# (tasks 4-5). `qdrant-store` is only registered when QDRANT_READ_ONLY=false.
+#
+# stdio is the server's default transport; kmcp adapts it to streamable HTTP and
+# creates a Service named after the MCPServer.
+#
+#   kubectl apply -f mcp-server-qdrant.yaml
+apiVersion: kagent.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: mcp-server-qdrant
+  namespace: kagent
+spec:
+  transportType: stdio
+  stdioTransport: {}
+  # The first start also pulls the fastembed model from HuggingFace, so the
+  # default 30s is not enough.
+  timeout: 300s
+  deployment:
+    image: python:3.11-slim
+    cmd: sh
+    args:
+      - -c
+      - pip install --no-cache-dir -q uv && exec uvx mcp-server-qdrant
+    env:
+      QDRANT_URL: http://qdrant.qdrant:6333
+      # Own collection — 384 dims, kept separate from abox-nomic (768).
+      COLLECTION_NAME: abox-minilm
+      # The server default; stated explicitly because this model IS task 6.
+      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      # Required for the qdrant-store tool to register (otherwise search only).
+      QDRANT_READ_ONLY: "false"
+    resources:
+      requests:
+        cpu: 100m
+        # onnxruntime + model. Measured peak here was ~310 MiB (see the ADR).
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 3Gi
