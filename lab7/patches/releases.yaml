@@ -1,0 +1,518 @@
+# lab7 — patches for Kustomization `releases` (bootstrap/flux.tf).
+#
+# Applied after the upstream artifact (pinned to 0.11.33) is built. Nothing here
+# is published.
+#
+# ── Removed: components the lab does not use and the cluster cannot run ──────
+#
+# ngrok      Domain/AgentEndpoint consume the ngrok CRDs removed in
+#            patches/crds.yaml — they cannot be applied without them.
+# triage     triage-agent/-core pull private GHCR packages; pages-triage and
+#            graph-otel-demo (despite the name) live in ns `triage` and pull
+#            with the private `triage-ghcr-pull` Secret. They stay red forever
+#            and keep `releases` from ever becoming Ready.
+# xray-memory  needs the author's snapshot key. Same effect.
+# llm-d      not blocking, but unused: qdrant-mcp embeds through
+#            llama-cpp-embeddings, not llm-d. Frees memory and two large image
+#            pulls that tend to outlast the Helm timeout.
+#
+# 🔴 triage.yaml ALSO declares `Namespace flux-system` (to carry a tenant
+# annotation). It is deliberately NOT listed here. Every Namespace target below
+# names its namespace — never target by `kind: Namespace` alone, or Flux's own
+# namespace goes with it.
+#
+# Generated from releases/ at tag v0.11.33 — if the pin moves, re-check names.
+
+# ── ngrok consumers ──
+
+- target:
+    kind: Domain
+    name: triageagent-ngrok-dev
+    namespace: agentgateway-system
+  patch: |
+    $patch: delete
+    apiVersion: ingress.k8s.ngrok.com/v1alpha1
+    kind: Domain
+    metadata:
+      name: triageagent-ngrok-dev
+      namespace: agentgateway-system
+
+- target:
+    kind: AgentEndpoint
+    name: triageagent-ngrok-dev
+    namespace: agentgateway-system
+  patch: |
+    $patch: delete
+    apiVersion: ngrok.k8s.ngrok.com/v1alpha1
+    kind: AgentEndpoint
+    metadata:
+      name: triageagent-ngrok-dev
+      namespace: agentgateway-system
+
+# ── triage ──
+
+- target:
+    kind: Namespace
+    name: triage
+  patch: |
+    $patch: delete
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: triage
+
+- target:
+    kind: ServiceAccount
+    name: default
+    namespace: triage
+  patch: |
+    $patch: delete
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: default
+      namespace: triage
+
+- target:
+    kind: OCIRepository
+    name: triage-agent
+    namespace: flux-system
+  patch: |
+    $patch: delete
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: OCIRepository
+    metadata:
+      name: triage-agent
+      namespace: flux-system
+
+- target:
+    kind: HelmRelease
+    name: triage-agent
+    namespace: triage
+  patch: |
+    $patch: delete
+    apiVersion: helm.toolkit.fluxcd.io/v2
+    kind: HelmRelease
+    metadata:
+      name: triage-agent
+      namespace: triage
+
+- target:
+    kind: OCIRepository
+    name: triage-core
+    namespace: flux-system
+  patch: |
+    $patch: delete
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: OCIRepository
+    metadata:
+      name: triage-core
+      namespace: flux-system
+
+- target:
+    kind: HelmRelease
+    name: triage-core
+    namespace: triage
+  patch: |
+    $patch: delete
+    apiVersion: helm.toolkit.fluxcd.io/v2
+    kind: HelmRelease
+    metadata:
+      name: triage-core
+      namespace: triage
+
+- target:
+    kind: OCIRepository
+    name: pages-triage
+    namespace: triage
+  patch: |
+    $patch: delete
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: OCIRepository
+    metadata:
+      name: pages-triage
+      namespace: triage
+
+- target:
+    kind: Kustomization
+    name: pages-triage
+    namespace: triage
+  patch: |
+    $patch: delete
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: pages-triage
+      namespace: triage
+
+- target:
+    kind: OCIRepository
+    name: graph-otel-demo
+    namespace: triage
+  patch: |
+    $patch: delete
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: OCIRepository
+    metadata:
+      name: graph-otel-demo
+      namespace: triage
+
+- target:
+    kind: Kustomization
+    name: graph-otel-demo
+    namespace: triage
+  patch: |
+    $patch: delete
+    apiVersion: kustomize.toolkit.fluxcd.io/v1
+    kind: Kustomization
+    metadata:
+      name: graph-otel-demo
+      namespace: triage
+
+# ── xray-memory ──
+
+- target:
+    kind: Namespace
+    name: xray-memory
+  patch: |
+    $patch: delete
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: xray-memory
+
+- target:
+    kind: OCIRepository
+    name: xray-memory
+    namespace: flux-system
+  patch: |
+    $patch: delete
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: OCIRepository
+    metadata:
+      name: xray-memory
+      namespace: flux-system
+
+- target:
+    kind: HelmRelease
+    name: xray-memory
+    namespace: xray-memory
+  patch: |
+    $patch: delete
+    apiVersion: helm.toolkit.fluxcd.io/v2
+    kind: HelmRelease
+    metadata:
+      name: xray-memory
+      namespace: xray-memory
+
+# ── llm-d ──
+
+- target:
+    kind: Namespace
+    name: llm-d
+  patch: |
+    $patch: delete
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: llm-d
+
+- target:
+    kind: HelmRepository
+    name: llm-d-modelservice
+    namespace: flux-system
+  patch: |
+    $patch: delete
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: HelmRepository
+    metadata:
+      name: llm-d-modelservice
+      namespace: flux-system
+
+- target:
+    kind: HelmRelease
+    name: llm-d-embedding
+    namespace: llm-d
+  patch: |
+    $patch: delete
+    apiVersion: helm.toolkit.fluxcd.io/v2
+    kind: HelmRelease
+    metadata:
+      name: llm-d-embedding
+      namespace: llm-d
+
+- target:
+    kind: Service
+    name: llm-d-embedding
+    namespace: llm-d
+  patch: |
+    $patch: delete
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: llm-d-embedding
+      namespace: llm-d
+
+- target:
+    kind: OCIRepository
+    name: inferencepool
+    namespace: flux-system
+  patch: |
+    $patch: delete
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: OCIRepository
+    metadata:
+      name: inferencepool
+      namespace: flux-system
+
+- target:
+    kind: HelmRelease
+    name: llm-d-pool
+    namespace: llm-d
+  patch: |
+    $patch: delete
+    apiVersion: helm.toolkit.fluxcd.io/v2
+    kind: HelmRelease
+    metadata:
+      name: llm-d-pool
+      namespace: llm-d
+
+- target:
+    kind: InferenceObjective
+    name: nomic-embed-text
+    namespace: llm-d
+  patch: |
+    $patch: delete
+    apiVersion: inference.networking.x-k8s.io/v1alpha2
+    kind: InferenceObjective
+    metadata:
+      name: nomic-embed-text
+      namespace: llm-d
+
+- target:
+    kind: HTTPRoute
+    name: llm-d-embedding
+    namespace: llm-d
+  patch: |
+    $patch: delete
+    apiVersion: gateway.networking.k8s.io/v1
+    kind: HTTPRoute
+    metadata:
+      name: llm-d-embedding
+      namespace: llm-d
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Values patches — what the lab actually changes
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# HelmRelease is a CRD, so these are JSON-merge patches: MAPS MERGE, LISTS ARE
+# REPLACED WHOLE. Every list below is written out in full on purpose.
+
+# ── OpenTelemetry Demo: Jaeger back, Phoenix added, agent on real Gemini ────
+#
+# jaeger           the "standard OTel" UI for task 3; upstream disables it to
+#                  save ~600Mi on KinD. Its exporter (otlp_grpc/jaeger) was
+#                  never removed from the pipeline, so it just starts receiving.
+#
+# otlp_grpc/phoenix  fan-out of the SAME post-processing spans (after the
+#                  demo's gen_ai_normalizer) to the third backend — Jaeger,
+#                  MLflow and Phoenix compare identical data. Phoenix is the
+#                  only one that authenticates ingest; without the Bearer
+#                  header every export is `Unauthenticated`, visible ONLY in
+#                  this collector's log. ${env:...} is the collector's own
+#                  env expansion — this file goes through file() in
+#                  bootstrap/flux.tf, so HCL does not touch it.
+#
+# extraEnvs        PHOENIX_API_KEY from Secret otel-demo/phoenix-ingest.
+#                  optional: the key only exists after Phoenix is up (it is
+#                  created in Phoenix's UI), and a required ref would keep the
+#                  collector — and the whole `releases` Kustomization — from
+#                  ever going Ready. Restart the collector once the Secret
+#                  exists.
+#
+# agent            off the VCR cassettes, onto Gemini's OpenAI-compatible
+#                  endpoint. Checked in src/agent/src/agents/llm.py (demo
+#                  3.0.0): ChatLLM subclasses langchain_openai.ChatOpenAI,
+#                  LLM_MODEL is passed through as-is (no provider prefix),
+#                  LLM_BASE_URL goes to openai_api_base (the SDK appends
+#                  /chat/completions), the key is read from API_KEY.
+#                  envOverrides is merged by name and emitted whole
+#                  (otel-demo.envOverriden -> mustToJson), so valueFrom
+#                  survives. API_KEY keeps its place in the list, ahead of
+#                  OPENAI_API_KEY=$(API_KEY), so the expansion still resolves.
+#                  optional for the same reason as above.
+- target:
+    kind: HelmRelease
+    name: opentelemetry-demo
+    namespace: otel-demo
+  patch: |
+    apiVersion: helm.toolkit.fluxcd.io/v2
+    kind: HelmRelease
+    metadata:
+      name: opentelemetry-demo
+      namespace: otel-demo
+    spec:
+      values:
+        jaeger:
+          enabled: true
+        components:
+          agent:
+            envOverrides:
+              - name: USE_VCR
+                value: "False"
+              - name: LLM_BASE_URL
+                value: https://generativelanguage.googleapis.com/v1beta/openai/
+              - name: LLM_MODEL
+                # gemma-4-31b-it, not Gemini 3.x: every Gemini 3 model rejects the
+                # second turn of a tool loop with HTTP 400 "Function call is missing a
+                # thought_signature" -- langchain_openai drops the signature that
+                # comes back in tool_calls[].extra_content. The agent calls
+                # list_products even on plain questions, so on Gemini 3 it never
+                # finishes a request. Gemini 2.5 is closed to new keys (404). Gemma
+                # 4 on the same key and endpoint completes the loop (checked at
+                # API level, 2026-10-02). Side effect: it puts <thought>...</thought>
+                # into the answer text.
+                value: gemma-4-31b-it
+              - name: API_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: gemini-api
+                    key: GEMINI_API_KEY
+                    optional: true
+        opentelemetry-collector:
+          # 400Mi (chart default) is not enough here: the collector fans out to
+          # five exporters, two of them (opensearch, otlp_http/prometheus) point
+          # at backends upstream disabled and keep retry queues full. At the
+          # limit memory_limiter refuses ingest with 503 -- the agent's spans
+          # were dropped before reaching ANY backend, visible only as
+          # "Service Unavailable" in the agent's own log (2026-10-02). 1Gi was
+          # still not enough on the node running the agent: 773Mi working set vs
+          # ~819Mi limiter threshold (80%), refusing span batches mid-series --
+          # root spans lost, MLflow traces stuck IN_PROGRESS. The other node's
+          # collector sat at 159Mi. Also note it ships its own telemetry to
+          # itself (service.telemetry -> otel-collector:4318).
+          resources:
+            limits:
+              memory: 2Gi
+          extraEnvs:
+            - name: PHOENIX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: phoenix-ingest
+                  key: api-key
+                  optional: true
+          config:
+            exporters:
+              otlp_grpc/phoenix:
+                endpoint: phoenix-svc.phoenix.svc.cluster.local:4317
+                tls:
+                  insecure: true
+                headers:
+                  authorization: "Bearer ${env:PHOENIX_API_KEY}"
+            service:
+              pipelines:
+                traces:
+                  exporters:
+                    - otlp_grpc/jaeger
+                    - debug
+                    - span_metrics
+                    - otlp_grpc/mlflow-bridge
+                    - otlp_grpc/phoenix
+
+# ── kagent: agents and kagent-tools export traces ──────────────────────────
+#
+# otel.tracing     rendered by the chart into ConfigMap kagent-controller
+#                  (templates/controller-configmap.yaml) as
+#                  OTEL_TRACING_ENABLED / OTEL_EXPORTER_OTLP_TRACES_*; the
+#                  controller copies those into every agent Deployment. This
+#                  is the only lasting switch — an Agent CR's deployment.env is
+#                  overridden by the controller's own value, and a hand patch
+#                  to the ConfigMap is undone by the next Helm upgrade.
+#                  Points at the demo's collector, so kagent spans take the
+#                  same path to Jaeger and Phoenix as the demo agent's.
+#                  (MLflow: the bridge has no route for ns `kagent` yet — it
+#                  needs an experiment id that only exists once MLflow runs.)
+#
+# kagent-tools     its own subchart, its own otel block, defaulting to
+#                  http://host.docker.internal:4317 — a docker-compose address
+#                  that does not resolve from a pod.
+- target:
+    kind: HelmRelease
+    name: kagent
+    namespace: kagent
+  patch: |
+    apiVersion: helm.toolkit.fluxcd.io/v2
+    kind: HelmRelease
+    metadata:
+      name: kagent
+      namespace: kagent
+    spec:
+      values:
+        otel:
+          tracing:
+            enabled: true
+            exporter:
+              otlp:
+                endpoint: http://otel-collector.otel-demo.svc.cluster.local:4317
+                protocol: grpc
+                insecure: true
+        kagent-tools:
+          otel:
+            tracing:
+              enabled: true
+              exporter:
+                otlp:
+                  endpoint: http://otel-collector.otel-demo.svc.cluster.local:4317
+                  insecure: true
+
+# ── MLflow bridge: a route for kagent ──────────────────────────────────────
+#
+# kagent agents export to the demo's collector (patch above), whose
+# k8s_attributes preset stamps k8s.namespace.name=kagent and whose traces
+# pipeline already forwards everything to this bridge. The bridge has NO
+# catch-all on purpose — an unrouted source is dropped, visible only in its
+# debug log — so kagent needs its own route and experiment.
+#
+# Experiment ids are not deterministic; they are created by hand after MLflow
+# starts, in this order, so they line up with the ids hardcoded upstream:
+#   0 Default · 1 lab7-placeholder · 2 triage-core · 3 otel-demo · 4 kagent
+#   POST /api/2.0/mlflow/experiments/create {"name": "<name>"}
+# A wiped mlflow PVC (make down) means creating them again, same order.
+#
+# routing.table is a list: written out whole, upstream's two routes included.
+- target:
+    kind: HelmRelease
+    name: otel-collector
+    namespace: mlflow
+  patch: |
+    apiVersion: helm.toolkit.fluxcd.io/v2
+    kind: HelmRelease
+    metadata:
+      name: otel-collector
+      namespace: mlflow
+    spec:
+      values:
+        config:
+          connectors:
+            routing:
+              table:
+                - statement: route() where resource.attributes["service.name"] == "triage-core"
+                  pipelines: [traces/triage-core]
+                - statement: route() where resource.attributes["k8s.namespace.name"] == "otel-demo"
+                  pipelines: [traces/otel-demo]
+                - statement: route() where resource.attributes["k8s.namespace.name"] == "kagent"
+                  pipelines: [traces/kagent]
+          exporters:
+            otlp_http/mlflow-kagent:
+              endpoint: http://mlflow-mlflow.mlflow.svc.cluster.local:5000
+              tls:
+                insecure: true
+              headers:
+                x-mlflow-experiment-id: "4"
+          service:
+            pipelines:
+              traces/kagent:
+                receivers:
+                  - routing
+                exporters:
+                  - otlp_http/mlflow-kagent

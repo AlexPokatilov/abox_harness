@@ -1,0 +1,73 @@
+# lab7 — a kagent agent to trace (task 2: "any kagent agent").
+#
+# A read-only cut of the stock k8s-agent: same kagent-tool-server, but only the
+# five tools that look and never touch — no patch/delete/apply/exec. The stock
+# agents run on default-model-config (OpenAI with a placeholder key) and come
+# from the kagent HelmRelease, so they are left alone; this one is created by
+# hand, outside Flux.
+#
+# Tracing needs nothing here: the kagent HelmRelease patch (otel.tracing.*) is
+# rendered into ConfigMap kagent-controller and copied into every agent
+# Deployment by the controller.
+#
+#   kubectl apply -f lab7/manifests/agent-lab7-k8s.yaml
+#   # switch model:  kubectl -n kagent patch agent lab7-k8s-agent --type=merge \
+#   #   -p '{"spec":{"declarative":{"modelConfig":"gemma-openai-compat"}}}'
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: lab7-k8s-agent
+  namespace: kagent
+spec:
+  type: Declarative
+  description: Read-only Kubernetes assistant for the lab7 observability comparison.
+  declarative:
+    modelConfig: gemini-openai-compat
+    runtime: go
+    stream: true
+    systemMessage: |-
+      You are a read-only Kubernetes assistant. Answer questions about the
+      cluster using your tools. You cannot change anything: never suggest that
+      you applied, patched or deleted a resource. Be brief; cite the namespace
+      and name of every object you mention.
+    tools:
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: kagent-tool-server
+          namespace: kagent
+          toolNames:
+            - k8s_get_resources
+            - k8s_get_resource_yaml
+            - k8s_describe_resource
+            - k8s_get_pod_logs
+            - k8s_get_events
+---
+# lab7-orchestrator — exists only to put an A2A hop into a trace. It has no
+# cluster tools of its own and must delegate to lab7-k8s-agent, so one request
+# crosses the agent boundary: does the trace context survive it (one trace
+# spanning both agents) or does the delegate start a trace of its own?
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: lab7-orchestrator
+  namespace: kagent
+spec:
+  type: Declarative
+  description: Delegates every cluster question to lab7-k8s-agent (A2A hop for tracing).
+  declarative:
+    modelConfig: gemini-openai-compat
+    runtime: go
+    stream: true
+    systemMessage: |-
+      You have no access to the cluster yourself. For any question about
+      Kubernetes, delegate it to the lab7-k8s-agent tool, then summarise its
+      answer in one or two sentences.
+    tools:
+      - type: Agent
+        agent:
+          apiGroup: kagent.dev
+          kind: Agent
+          name: lab7-k8s-agent
+          namespace: kagent

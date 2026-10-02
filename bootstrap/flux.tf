@@ -44,7 +44,12 @@ resource "kubectl_manifest" "rsip" {
         includeTag: "^\\d+\\.\\d+\\.\\d+$"
         # Without semver the tags sort in reverse alphabetical order, which
         # ranks 0.9.9 above 0.9.10.
-        semver: ">=0.0.0"
+        #
+        # lab7: pinned instead of ">=0.0.0". The lab7/patches/ below are
+        # written against this exact bundle (= HEAD of this branch, v0.11.33);
+        # a newer upstream tag could change what they target, and the RSIP
+        # would otherwise roll the cluster mid-measurement on its 5m poll.
+        semver: "=0.11.33"
         limit: 1
       defaultValues:
         tag: "${var.releases_version}"
@@ -91,6 +96,13 @@ resource "kubectl_manifest" "rset" {
           path: ./crds
           prune: true
           wait: true
+          # lab7: local edits on top of the upstream bundle, nothing published.
+          # jsonencode(yamldecode(...)) inlines the list as one line of JSON
+          # (valid YAML flow style), so there is no heredoc indentation to get
+          # right, and file() content is never HCL-interpolated -- the
+          # collector's $${env:...} references in the patches survive as-is.
+          # yamldecode also fails the plan on a malformed patch file.
+          patches: ${jsonencode(yamldecode(file("${path.module}/../lab7/patches/crds.yaml")))}
       - apiVersion: kustomize.toolkit.fluxcd.io/v1
         kind: Kustomization
         metadata:
@@ -107,5 +119,7 @@ resource "kubectl_manifest" "rset" {
           prune: true
           wait: true
           retryInterval: 30s
+          # lab7: see releases-crds above.
+          patches: ${jsonencode(yamldecode(file("${path.module}/../lab7/patches/releases.yaml")))}
   YAML
 }

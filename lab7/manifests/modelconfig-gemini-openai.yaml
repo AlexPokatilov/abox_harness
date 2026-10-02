@@ -1,0 +1,46 @@
+# lab7 — models for kagent agents, through Gemini's OpenAI-compatible endpoint.
+#
+# Why provider: OpenAI and not provider: Gemini. In kagent 0.10.1 only the
+# OpenAI, Anthropic, Bedrock and Ollama model adapters write the prompt and the
+# response onto the LLM span (telemetry.SetLLMRequestAttributes /
+# SetLLMResponseAttributes). Through the Gemini adapter a span carries token
+# counts and no conversation — and task 3 compares how the backends show
+# exactly that. Same key, same endpoint, different adapter.
+#
+# Two configs on one key, so an agent can be switched between them:
+#   gemini-openai-compat  gemini-3.6-flash — Gemini 3 requires a
+#                         thought_signature on tool-call turns; whether kagent's
+#                         OpenAI adapter keeps it is checked empirically (see
+#                         lab7/TODO.md, «Хід виконання»).
+#   gemma-openai-compat   gemma-4-31b-it — completes tool loops without one
+#                         (the demo agent runs on it for that reason).
+# Gemini 2.5 is closed to new keys (404).
+#
+# The key: Secret kagent/gemini-api, created by `bash lab7/secrets.sh gemini`.
+# Not part of the release bundle; applied by hand after `make run`:
+#   kubectl apply -f lab7/manifests/modelconfig-gemini-openai.yaml
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: gemini-openai-compat
+  namespace: kagent
+spec:
+  provider: OpenAI
+  model: gemini-3.6-flash
+  apiKeySecret: gemini-api
+  apiKeySecretKey: GEMINI_API_KEY
+  openAI:
+    baseUrl: https://generativelanguage.googleapis.com/v1beta/openai/
+---
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: gemma-openai-compat
+  namespace: kagent
+spec:
+  provider: OpenAI
+  model: gemma-4-31b-it
+  apiKeySecret: gemini-api
+  apiKeySecretKey: GEMINI_API_KEY
+  openAI:
+    baseUrl: https://generativelanguage.googleapis.com/v1beta/openai/

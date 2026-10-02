@@ -1,0 +1,48 @@
+# lab7 — patches for Kustomization `releases-crds` (bootstrap/flux.tf).
+#
+# Applied after the upstream artifact (pinned to 0.11.33) is built, so nothing
+# here is published: the cluster reconciles den-vasyliev's bundle, edited on the
+# way in.
+#
+# ngrok-operator is removed because `releases-crds` has `wait: true`: it waits
+# for every object it applies to become Ready. Without the
+# `ngrok-operator-credentials` Secret (an ngrok account) the HelmRelease stays
+# InProgress forever, and `releases` depends on `releases-crds` — so nothing
+# else starts at all. The lab does not use ngrok.
+#
+# Its two consumers (Domain, AgentEndpoint) live in releases/ and are removed in
+# patches/releases.yaml — without these CRDs they could not be applied.
+
+- target:
+    kind: HelmRelease
+    name: ngrok-operator
+    namespace: ngrok-operator
+  patch: |
+    $patch: delete
+    apiVersion: helm.toolkit.fluxcd.io/v2
+    kind: HelmRelease
+    metadata:
+      name: ngrok-operator
+      namespace: ngrok-operator
+
+- target:
+    kind: HelmRepository
+    name: ngrok
+    namespace: flux-system
+  patch: |
+    $patch: delete
+    apiVersion: source.toolkit.fluxcd.io/v1
+    kind: HelmRepository
+    metadata:
+      name: ngrok
+      namespace: flux-system
+
+- target:
+    kind: Namespace
+    name: ngrok-operator
+  patch: |
+    $patch: delete
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: ngrok-operator
